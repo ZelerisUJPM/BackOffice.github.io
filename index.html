@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestor de Casos Local</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    /* Estilos generales */
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f7f9;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+    }
+    .container {
+        background-color: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        width: 90%;
+        max-width: 1000px;
+        text-align: center;
+    }
+    h1 {
+        color: #007bff;
+        margin-bottom: 20px;
+    }
+    #caseDisplay {
+        border: 2px solid #ddd;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        background-color: #f8f8f8;
+        text-align: left;
+    }
+    #caseDisplay h3 {
+        color: #343a40;
+        margin-top: 0;
+    }
+    #caseDisplay ul {
+        list-style: none;
+        padding: 0;
+    }
+    #caseDisplay li {
+        padding: 8px 0;
+        border-bottom: 1px dashed #eee;
+    }
+    #caseDisplay li:last-child {
+        border-bottom: none;
+    }
+    label {
+        display: block;
+        margin-bottom: 8px;
+        color: #555;
+        font-weight: bold;
+    }
+    /* Listas lado a lado */
+    .list-container {
+        display: flex;
+        justify-content: space-around;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+    .list-wrapper {
+        width: 48%;
+        text-align: left;
+    }
+    select, input[type="file"], input[type="text"] {
+        padding: 12px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        width: calc(100% - 26px);
+        box-sizing: border-box;
+        font-size: 1em;
+    }
+    button {
+        padding: 12px 25px;
+        margin: 5px;
+        border: none;
+        border-radius: 6px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+    button:disabled {
+        background-color: #6c757d;
+        cursor: default;
+        opacity: 0.7;
+    }
+    button:disabled:hover {
+        background-color: #6c757d;
+        cursor: default;
+    }
+    #downloadButton {
+        background-color: #28a745;
+    }
+    #downloadButton:hover {
+        background-color: #1e7e34;
+    }
+    #finishDayButton {
+        background-color: #ffc107;
+        color: #333;
+    }
+    #finishDayButton:hover {
+        background-color: #e0a800;
+    }
+    /* Estilos para la pantalla de login */
+    #loginContainer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(244, 247, 249, 0.95);
+        z-index: 1000;
+    }
+    #loginForm {
+        background-color: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        text-align: center;
+        width: 90%;
+        max-width: 400px;
+    }
+    #loginForm h2 {
+        color: #007bff;
+        margin-bottom: 25px;
+    }
+    .login-error {
+        color: #dc3545;
+        margin-top: 10px;
+    }
+    /* Ocultar la aplicación principal inicialmente */
+    #mainContainer {
+        display: none;
+    }
+    /* Estilos para el icono de carga de archivo */
+    #fileInputImage {
+    cursor: pointer;
+    width: 50px;
+    height: auto;
+    margin-bottom: 10px;
+    }
+
+    /* Oculta el input de tipo file original */
+    #fileInput {
+    display: none;
+    }
+	#partialDownloadButton {
+	background-color: #6c757d;
+	}
+	#partialDownloadButton:hover {
+	background-color: #5a6268;
+	}
+  </style>
+</head>
+<body>
+
+    <div id="loginContainer">
+      <div id="loginForm">
+          <h2>Inicio de Sesión</h2>
+          <div id="loginError" class="login-error" style="display:none;"></div>
+          <label for="cacInput">CAC:</label>
+          <input type="text" id="cacInput" placeholder="Ingresa tu CAC" required>
+          <label for="nombreInput">Nombre Completo:</label>
+          <input type="text" id="nombreInput" placeholder="Ingresa tu Nombre Completo" required>
+          <button id="loginButton">Ingresar</button>
+      </div>
+  </div>
+
+    <div id="mainContainer" class="container">
+      <h1>Gestor de Casos Local</h1>
+      <img id="fileInputImage" src="img/cargar.ico" alt="Cargar archivo Excel">
+      <input type="file" id="fileInput" accept=".xlsx, .xls, .ods, .csv">
+      <br><br>
+      <div id="caseDisplay">
+          <p>Carga un archivo Excel para comenzar a gestionar los casos.</p>
+      </div>
+      <div class="list-container">
+          <div class="list-wrapper">
+              <label for="initialStatusDropdown">Estado Inicial:</label>
+              <select id="initialStatusDropdown" disabled>
+                  <option value="">Selecciona un estado inicial...</option>
+                  <option value="RECHAZO">RECHAZO</option>
+                  <option value="CAMBIO DE DIRECCION">CAMBIO DE DIRECCION</option>
+                  <option value="AUSENTE">AUSENTE</option>
+                  <option value="APLAZADA">APLAZADA</option>
+                  <option value="EN REPARTO">EN REPARTO</option>
+                  <option value="DEVOLUCIÓN">DEVOLUCIÓN</option>
+                  <option value="EN TRANSITO">EN TRANSITO</option>
+                  <option value="ENTREGADA">ENTREGADA</option>
+                  <option value="FALTA PROVISIONAL">FALTA PROVISIONAL</option>
+                  <option value="IR A ENTREGAR">IR A ENTREGAR</option>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="DAÑO PROVISIONAL">DAÑO PROVISIONAL</option>
+                  <option value="RETENIDO">RETENIDO</option>
+                  <option value="POSIBLE FRAUDE">POSIBLE FRAUDE</option>
+              </select>
+          </div>
+          <div class="list-wrapper">
+              <label for="actionDropdown">Estado Final:</label>
+              <select id="actionDropdown" disabled>
+                  <option value="">Selecciona una acción...</option>
+                  <option value="NO CONTACTO">NO CONTACTO</option>
+                  <option value="IR A ENTREGAR">IR A ENTREGAR</option>
+                  <option value="RECHAZO">RECHAZO</option>
+                  <option value="APLAZADA">APLAZADA</option>
+                option value="EN REPARTO">EN REPARTO</option>
+                  <option value="DEVOLUCIÓN">DEVOLUCIÓN</option>
+                  <option value="EN TRANSITO">EN TRANSITO</option>
+                  <option value="ENTREGADA">ENTREGADA</option>
+                  <option value="FALTA PROVISIONAL">FALTA PROVISIONAL</option>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="DAÑO PROVISIONAL">DAÑO PROVISIONAL</option>
+              </select>
+          </div>
+      </div>
+      <button id="startButton" disabled>Iniciar Caso</button>
+      <button id="saveButton" disabled>Guardar Caso</button>
+      <button id="nextButton" disabled>Siguiente Caso</button>
+      <button id="partialDownloadButton" disabled>Corte Parcial</button> <br><br>
+      <button id="finishDayButton">Finalizar Jornada</button>
+      <button id="downloadButton" disabled>Descargar Resultados</button>
+  </div>
+  <script>
+    // Variables globales
+    let todosCasos = []; // Lista completa de casos del Excel (para exportar)
+    let casosOriginales = []; // Casos nuevos a gestionar en la sesión actual
+    let casosRondaActual = [];
+    let casoActualIndex = -1;
+    let casoActualInicioTiempo;
+    let casosGestionados = [];
+    let rondaActual = 0;
+    let db; // Instancia de IndexedDB
+
+    // Se usará localStorage para almacenar el nombre del archivo cargado (clave: "currentFileName")
+
+    // Variables del login
+    let loggedInCAC = "";
+    let loggedInName = "";
+
+    // Elementos del login
+    const loginContainer = document.getElementById('loginContainer');
+    const loginForm = document.getElementById('loginForm');
+    const loginButton = document.getElementById('loginButton');
+    const cacInput = document.getElementById('cacInput');
+    const nombreInput = document.getElementById('nombreInput');
+    const loginError = document.getElementById('loginError');
+
+    // Elementos de la aplicación principal
+    const mainContainer = document.getElementById('mainContainer');
+    const fileInput = document.getElementById('fileInput');
+    const caseDisplay = document.getElementById('caseDisplay');
+    const initialStatusDropdown = document.getElementById('initialStatusDropdown');
+    const actionDropdown = document.getElementById('actionDropdown');
+    const startButton = document.getElementById('startButton');
+    const saveButton = document.getElementById('saveButton');
+    const nextButton = document.getElementById('nextButton');
+    const finishDayButton = document.getElementById('finishDayButton');
+    const downloadButton = document.getElementById('downloadButton');
+    const partialDownloadButton = document.getElementById('partialDownloadButton'); // Nuevo botón
+
+    // Configuración de IndexedDB
+    const dbName = "CasosDB";
+    const dbVersion = 1;
+
+    function openDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(dbName, dbVersion);
+            request.onerror = (event) => {
+                console.error("Error al abrir IndexedDB", event);
+                alert("No se pudo abrir la base de datos. Por favor, recarga la página.");
+                reject("Error al abrir la base de datos.");
+            };
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                resolve(db);
+            };
+            request.onupgradeneeded = (event) => {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains("casos")) {
+                    const store = db.createObjectStore("casos", { keyPath: "id", autoIncrement: true });
+                    store.createIndex("caso_index", "caso_index", { unique: false });
+                }
+            };
+        });
+    }
+
+    function addCaseToDB(casoGestionado) {
+        const transaction = db.transaction(["casos"], "readwrite");
+        const store = transaction.objectStore("casos");
+        const request = store.add(casoGestionado);
+        request.onerror = (event) => {
+            console.error("Error al agregar caso", event);
+            alert("Error al guardar el caso en la base de datos.");
+        };
+        request.onsuccess = () => {
+            console.log("Caso agregado correctamente a IndexedDB");
+        };
+    }
+
+    function getAllCasesFromDB() {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(["casos"], "readonly");
+            const store = transaction.objectStore("casos");
+            const request = store.getAll();
+            request.onerror = (event) => {
+                console.error("Error al obtener casos", event);
+                alert("Error al recuperar los casos guardados.");
+                reject("Error al obtener casos");
+            };
+            request.onsuccess = (event) => {
+                resolve(event.target.result);
+            };
+        });
+    }
+
+    function clearDatabase() {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(["casos"], "readwrite");
+            const store = transaction.objectStore("casos");
+            const request = store.clear();
+            request.onerror = (event) => {
+                console.error("Error al limpiar la base de datos", event);
+                alert("Ocurrió un error al limpiar la base de datos. Por favor, intenta nuevamente.");
+                reject("Error al limpiar la base de datos.");
+            };
+            request.onsuccess = () => {
+                console.log("Base de datos limpiada correctamente.");
+                resolve("Base de datos limpiada correctamente.");
+            };
+        });
+    }
+
+    // Evento de Login
+    loginButton.addEventListener('click', function() {
+        const cac = cacInput.value.trim();
+        const nombre = nombreInput.value.trim();
+
+        if (cac !== '' && nombre !== '') {
+            loginContainer.style.display = 'none';
+            mainContainer.style.display = 'block';
+            loginError.style.display = 'none';
+
+            // Al iniciar una nueva sesión, nos aseguramos de que el botón de descargar resultados esté deshabilitado.
+            downloadButton.disabled = true;
+            partialDownloadButton.disabled = true; // Inicialmente desactivado
+
+            loggedInCAC = cac;
+            loggedInName = nombre;
+
+            openDatabase()
+              .then(() => getAllCasesFromDB())
+              .then(casosAlmacenados => {
+                  if (casosAlmacenados.length > 0) {
+                      console.log("Casos almacenados:", casosAlmacenados);
+                      casosGestionados = casosAlmacenados;
+                  }
+              })
+              .catch(error => console.error(error));
+
+            fileInput.addEventListener('change', handleFile);
+            startButton.addEventListener('click', iniciarCaso);
+            saveButton.addEventListener('click', guardarCaso);
+            nextButton.addEventListener('click', siguienteCaso);
+            finishDayButton.addEventListener('click', finalizarJornada);
+            downloadButton.addEventListener('click', descargarResultados);
+            partialDownloadButton.addEventListener('click', descargarCorteParcial); // Evento para el nuevo botón
+        } else {
+            loginError.textContent = 'Por favor, ingresa CAC y Nombre Completo.';
+            loginError.style.display = 'block';
+        }
+    });
+
+    // Función para procesar el archivo Excel
+    function processFile(file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            let casosLeidos = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            if (casosLeidos.length > 0) {
+                const headers = casosLeidos.shift();
+                let casoColumnIndex = -1;
+                for (let i = 0; i < headers.length; i++) {
+                    const header = headers[i] ? headers[i].trim().toLowerCase() : '';
+                    if (header === 'caso' || header === 'casos' || header === '# de caso' || header === 'n° de caso' || header === 'no de caso') {
+                        casoColumnIndex = i;
+                        break;
+                    }
+                }
+
+                if (casoColumnIndex !== -1) {
+                    const fullList = casosLeidos.map(casoData => {
+                        let casoValue = casoData[casoColumnIndex];
+                        return casoValue !== undefined ? casoValue : 'N/A';
+                    });
+                    if (localStorage.getItem("currentFileName")) {
+                        if (todosCasos.length === 0) {
+                            todosCasos = fullList;
+                        }
+                        const processedSet = new Set(casosGestionados.filter(c => c.ronda === 1).map(c => c.datos_caso));
+                        casosOriginales = todosCasos.filter(caso => !processedSet.has(caso));
+                    } else {
+                        todosCasos = fullList;
+                        casosOriginales = fullList;
+                    }
+
+                    if (todosCasos.length > 0) {
+                        caseDisplay.innerHTML = "<p>Archivo Excel cargado. Se han omitido los casos ya gestionados para continuar.</p>";
+                        rondaActual = 0;
+                        iniciarRonda();
+                        downloadButton.disabled = true;
+                        partialDownloadButton.disabled = true; // Desactivar al cargar nuevo archivo
+                    } else {
+                        caseDisplay.innerHTML = "<p>Todos los casos ya fueron gestionados.</p>";
+                        deshabilitarBotonesCaso();
+                        downloadButton.disabled = false;
+                        partialDownloadButton.disabled = true; // Desactivar si no hay casos
+                    }
+                } else {
+                    caseDisplay.innerHTML = "<p>No se encontró una columna con el título 'Caso' o '# de caso'.</p>";
+                    deshabilitarBotonesCaso();
+                    downloadButton.disabled = true;
+                    partialDownloadButton.disabled = true; // Desactivar si no se encuentra la columna
+                    casosOriginales = [];
+                    casosRondaActual = [];
+                }
+            } else {
+                caseDisplay.innerHTML = "<p>El archivo Excel está vacío o no contiene datos válidos.</p>";
+                deshabilitarBotonesCaso();
+                downloadButton.disabled = true;
+                partialDownloadButton.disabled = true; // Desactivar si el archivo está vacío
+                casosOriginales = [];
+                casosRondaActual = [];
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // Función para manejar la carga del archivo Excel con validación del nombre
+    function handleFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const storedFileName = localStorage.getItem("currentFileName");
+        if (storedFileName) {
+            if (storedFileName !== file.name) {
+                const confirmDelete = confirm("El archivo seleccionado es distinto al cargado anteriormente. ¿Desea eliminar los datos almacenados y comenzar de 0?");
+                if (!confirmDelete) {
+                    alert("Operación cancelada. No se cargó el archivo Excel.");
+                    return;
+                } else {
+                    clearDatabase().then(() => {
+                        localStorage.setItem("currentFileName", file.name);
+                        todosCasos = [];
+                        processFile(file);
+                    }).catch(error => console.error("Error al limpiar la base de datos:", error));
+                    return;
+                }
+            }
+        } else {
+            localStorage.setItem("currentFileName", file.name);
+        }
+        processFile(file);
+    }
+
+    function iniciarRonda() {
+        rondaActual++;
+        if (rondaActual > 3) {
+            finalizarJornada();
+            return;
+        }
+        caseDisplay.innerHTML = `<p>Iniciando Ronda ${rondaActual}. Cargando casos...</p>`;
+        casoActualIndex = -1;
+        if (rondaActual === 1) {
+            casosRondaActual = [...casosOriginales];
+        } else {
+            casosRondaActual = filtrarCasosNoContesta(rondaActual - 1);
+            if (casosRondaActual.length === 0) {
+                caseDisplay.innerHTML = `<p>Ronda ${rondaActual} iniciada, pero no hay casos 'NO CONTACTO' de la ronda anterior. Finalizando ronda actual.</p>`;
+                iniciarRonda();
+                return;
+            }
+        }
+        siguienteCaso();
+    }
+
+    function filtrarCasosNoContesta(rondaAnterior) {
+        return casosGestionados.filter(casoGestionado =>
+            casoGestionado.ronda === rondaAnterior && (casoGestionado.estado_final === 'NO CONTACTO' || casoGestionado.estado_final === 'EN REPARTO')
+        ).map(casoNoContesta => casoNoContesta.datos_caso);
+    }
+
+    function siguienteCaso() {
+        casoActualIndex++;
+        if (casoActualIndex < casosRondaActual.length) {
+            mostrarCaso(casosRondaActual[casoActualIndex]);
+            habilitarBotonIniciar();
+            deshabilitarBotonesGuardarSiguiente();
+            partialDownloadButton.disabled = false; // Activar al usar siguiente caso
+            if (rondaActual !== 1) {
+                initialStatusDropdown.disabled = true;
+                initialStatusDropdown.value = "";
+            }
+            actionDropdown.disabled = true;
+            actionDropdown.value = "";
+            nextButton.disabled = true;
+            caseDisplay.innerHTML += `<p>Gestionando Caso ${casoActualIndex + 1} de la Ronda ${rondaActual}.</p>`;
+        } else {
+            caseDisplay.innerHTML = `<p>Ronda ${rondaActual} finalizada. No hay más casos en esta ronda.</p>`;
+            deshabilitarBotonesCaso();
+            partialDownloadButton.disabled = true; // Desactivar al finalizar ronda
+            iniciarRonda();
+        }
+    }
+
+    function mostrarCaso(caso) {
+        let caseHTML = `<h3>Caso ${casoActualIndex + 1} - Ronda ${rondaActual}</h3><ul>`;
+        caseHTML += `<li><strong># Caso:</strong> ${caso}</li>`;
+        caseHTML += "</ul>";
+        caseDisplay.innerHTML = caseHTML;
+    }
+
+    function iniciarCaso() {
+        casoActualInicioTiempo = new Date();
+        startButton.disabled = true;
+        saveButton.disabled = false;
+        partialDownloadButton.disabled = true; // Desactivar al iniciar caso
+        if (rondaActual === 1) {
+            initialStatusDropdown.disabled = false;
+        } else {
+            initialStatusDropdown.disabled = true;
+            initialStatusDropdown.value = "";
+        }
+        actionDropdown.disabled = false;
+        actionDropdown.focus();
+    }
+
+    function guardarCaso() {
+        const casoActualFinTiempo = new Date();
+        const accionSeleccionada = actionDropdown.value;
+        const estadoInicialSeleccionado = (rondaActual === 1) ? initialStatusDropdown.value : '';
+
+        if (!accionSeleccionada) {
+            alert("Por favor, selecciona una acción realizada en el caso.");
+            return;
+        }
+        if (rondaActual === 1 && !estadoInicialSeleccionado) {
+            alert("Por favor, selecciona un estado inicial para el caso.");
+            return;
+        }
+
+        const duracionMs = casoActualFinTiempo - casoActualInicioTiempo;
+        const duracionFormateada = formatDuration(duracionMs);
+
+        const casoGestionado = {
+            caso_index: casoActualIndex + 1,
+            ronda: rondaActual,
+            datos_caso: casosRondaActual[casoActualIndex],
+            estado_inicial: estadoInicialSeleccionado,
+            inicio_tiempo: casoActualInicioTiempo.toISOString(),
+            fin_tiempo: casoActualFinTiempo.toISOString(),
+            duracion_gestion: duracionFormateada,
+            estado_final: accionSeleccionada
+        };
+
+        let casoExistenteIndex = casosGestionados.findIndex(gestionado =>
+            sonCasosIguales(gestionado.datos_caso, casoGestionado.datos_caso) && gestionado.ronda === rondaActual
+        );
+
+        if (casoExistenteIndex > -1) {
+            casosGestionados[casoExistenteIndex] = casoGestionado;
+        } else {
+            casosGestionados.push(casoGestionado);
+            addCaseToDB(casoGestionado);
+        }
+
+        saveButton.disabled = true;
+        nextButton.disabled = false;
+        initialStatusDropdown.disabled = true;
+        actionDropdown.disabled = true;
+        nextButton.focus();
+    }
+
+    function sonCasosIguales(caso1, caso2) {
+        return caso1 === caso2;
+    }
+
+    function formatDuration(milliseconds) {
+        let seconds = Math.floor(milliseconds / 1000);
+        let minutes = Math.floor(seconds / 60);
+        let hours = Math.floor(minutes / 60);
+        seconds = seconds % 60;
+        minutes = minutes % 60;
+        hours = hours % 24;
+        return String(hours).padStart(2, '0') + ":" + String(minutes).padStart(2, '0') + ":" + String(seconds).padStart(2, '0');
+    }
+
+    function formatTime(isoTime) {
+        if (!isoTime) return '';
+        const date = new Date(isoTime);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds}`;
+    }
+
+    function formatDateToDayMonthYear(isoDate) {
+        if (!isoDate) return '';
+        const date = new Date(isoDate);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+    }
+
+    function finalizarJornada() {
+        // El botón se habilita solo al finalizar la jornada
+        downloadButton.disabled = false;
+        partialDownloadButton.disabled = true; // Desactivar al finalizar jornada
+        alert("Jornada finalizada después de 3 rondas. El botón 'Descargar Resultados' ha sido habilitado.");
+        caseDisplay.innerHTML = "<p>Jornada finalizada. Haz clic en 'Descargar Resultados'.</p>";
+    }
+
+    // Nueva función para descargar el corte parcial Excel
+    function descargarCorteParcial() {
+        if (casosGestionados.length === 0) {
+            alert("No hay casos gestionados para descargar en este corte parcial.");
+            return;
+        }
+
+        const fechaDescarga = new Date();
+        const fechaFormateada = formatDateToDayMonthYear(fechaDescarga.toISOString());
+        const nuevoWorkbook = XLSX.utils.book_new();
+        const nuevaWorksheetData = [];
+        const encabezadoExcel = [
+            "Fecha", "#caso", "estado inicial", "inicio de caso", "fin de caso", "duracion ronda 1", "duracion ronda 2","duracion ronda 3", "CAC", "Nombre","estado final ronda 3"
+        ];
+        nuevaWorksheetData.push(encabezadoExcel);
+
+        todosCasos.forEach((casoOriginal, index) => { // Usamos todosCasos para mantener el orden original
+            let gestionRonda1 = casosGestionados.find(gestion => sonCasosIguales(gestion.datos_caso, casoOriginal) && gestion.ronda === 1);
+            let gestionRonda2 = casosGestionados.find(gestion => sonCasosIguales(gestion.datos_caso, casoOriginal) && gestion.ronda === 2);
+            let gestionRonda3 = casosGestionados.find(gestion => sonCasosIguales(gestion.datos_caso, casoOriginal) && gestion.ronda === 3);
+
+            let estadoFinalRonda3 = gestionRonda3 ? gestionRonda3.estado_final : '';
+
+            if (!estadoFinalRonda3) {
+                estadoFinalRonda3 = gestionRonda2 ? gestionRonda2.estado_final : '';
+                if (!estadoFinalRonda3) {
+                    estadoFinalRonda3 = gestionRonda1 ? gestionRonda1.estado_final : '';
+                }
+            }
+
+            let filaData = [
+                fechaFormateada,
+                casoOriginal,
+                gestionRonda1 ? gestionRonda1.estado_inicial : '',
+                gestionRonda1 ? formatTime(gestionRonda1.inicio_tiempo) : '',
+                gestionRonda1 ? formatTime(gestionRonda1.fin_tiempo) : '',
+                gestionRonda1 ? gestionRonda1.duracion_gestion : '',
+                gestionRonda2 ? gestionRonda2.duracion_gestion : '',
+                gestionRonda3 ? gestionRonda3.duracion_gestion : '',
+                loggedInCAC,
+                loggedInName,
+	   	estadoFinalRonda3
+            ];
+            nuevaWorksheetData.push(filaData);
+        });
+
+        const nuevaWorksheet = XLSX.utils.aoa_to_sheet(nuevaWorksheetData);
+        XLSX.utils.book_append_sheet(nuevoWorkbook, nuevaWorksheet, "Corte Parcial Casos Gestionados");
+        const wbout = XLSX.write(nuevoWorkbook, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([new Uint8Array(wbout)], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "corte_parcial_casos_gestionados.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+
+    function habilitarBotonIniciar() {
+        startButton.disabled = false;
+    }
+
+    function deshabilitarBotonesGuardarSiguiente() {
+        saveButton.disabled = true;
+        nextButton.disabled = true;
+    }
+
+    function deshabilitarBotonesCaso() {
+        startButton.disabled = true;
+        saveButton.disabled = true;
+        nextButton.disabled = true;
+        initialStatusDropdown.disabled = true;
+        actionDropdown.disabled = true;
+    }
+// Evento para la imagen (icono) de carga de archivo
+fileInputImage.addEventListener('click', function() {
+    fileInput.click(); // Simula un clic en el input de tipo file oculto
+});
+// Función para descargar el archivo Excel y reiniciar la sesión (limpiando todos los datos)
+    function descargarResultados() {
+        if (casosGestionados.length === 0 && casosOriginales.length > 0) {
+            alert("No se gestionó ningún caso en esta jornada. Se descargará el listado original sin estados finales.");
+        } else if (casosGestionados.length === 0 && casosOriginales.length === 0) {
+            alert("No hay casos para descargar.");
+            return;
+        }
+
+        const baseList = todosCasos.length > 0 ? todosCasos : casosOriginales;
+        const fechaDescarga = new Date();
+        const fechaFormateada = formatDateToDayMonthYear(fechaDescarga.toISOString());
+        const nuevoWorkbook = XLSX.utils.book_new();
+        const nuevaWorksheetData = [];
+        const encabezadoExcel = [
+            "Fecha", "#caso", "estado inicial", "inicio de caso", "fin de caso", "duracion ronda 1", "duracion ronda 2","duracion ronda 3", "CAC", "Nombre","estado final ronda 3"
+        ];
+        nuevaWorksheetData.push(encabezadoExcel);
+
+        baseList.forEach((casoOriginal, index) => {
+            let gestionRonda1 = casosGestionados.find(gestion => sonCasosIguales(gestion.datos_caso, casoOriginal) && gestion.ronda === 1);
+            let gestionRonda2 = casosGestionados.find(gestion => sonCasosIguales(gestion.datos_caso, casoOriginal) && gestion.ronda === 2);
+            let gestionRonda3 = casosGestionados.find(gestion => sonCasosIguales(gestion.datos_caso, casoOriginal) && gestion.ronda === 3);
+
+            let estadoFinalRonda3 = gestionRonda3 ? gestionRonda3.estado_final : '';
+
+            // **MODIFICACIÓN:** Si estadoFinalRonda3 está vacío, intentamos con la ronda 2 y luego con la 1
+            if (!estadoFinalRonda3) {
+                estadoFinalRonda3 = gestionRonda2 ? gestionRonda2.estado_final : '';
+                if (!estadoFinalRonda3) {
+                    estadoFinalRonda3 = gestionRonda1 ? gestionRonda1.estado_final : '';
+                }
+            }
+
+
+            let filaData = [
+                fechaFormateada,
+                casoOriginal,
+                gestionRonda1 ? gestionRonda1.estado_inicial : '',
+                gestionRonda1 ? formatTime(gestionRonda1.inicio_tiempo) : '',
+                gestionRonda1 ? formatTime(gestionRonda1.fin_tiempo) : '',
+                gestionRonda1 ? gestionRonda1.duracion_gestion : '',
+                gestionRonda2 ? gestionRonda2.duracion_gestion : '',
+                gestionRonda3 ? gestionRonda3.duracion_gestion : '',
+                loggedInCAC,
+                loggedInName,
+	   	estadoFinalRonda3 // Usamos estadoFinalRonda3 que puede venir de rondas anteriores
+            ];
+            nuevaWorksheetData.push(filaData);
+        });
+
+        const nuevaWorksheet = XLSX.utils.aoa_to_sheet(nuevaWorksheetData);
+        XLSX.utils.book_append_sheet(nuevoWorkbook, nuevaWorksheet, "Casos Gestionados");
+        const wbout = XLSX.write(nuevoWorkbook, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([new Uint8Array(wbout)], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "casos_gestionados.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Reiniciar sesión: limpiar la base de datos, eliminar el nombre almacenado,
+        // limpiar el input de archivo y reiniciar todas las variables globales para comenzar desde cero.
+        setTimeout(function() {
+            mainContainer.style.display = 'none';
+            loginContainer.style.display = 'flex';
+            cacInput.value = '';
+            nombreInput.value = '';
+            fileInput.value = '';
+            // Reiniciamos las variables globales
+            todosCasos = [];
+            casosOriginales = [];
+            casosRondaActual = [];
+            casoActualIndex = -1;
+            casosGestionados = [];
+            rondaActual = 0;
+            clearDatabase()
+              .then(() => {
+                  console.log("La base de datos se ha limpiado correctamente.");
+                  localStorage.removeItem("currentFileName");
+              })
+              .catch((error) => console.error("Error al limpiar la base de datos:", error));
+        }, 2000);
+    }
+
+  </script>
+</body>
+</html>
