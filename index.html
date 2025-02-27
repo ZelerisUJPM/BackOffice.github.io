@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestor de Casos</title>
+  <title>Gestor de Casos Local</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     /* Estilos generales */
@@ -169,6 +169,15 @@
 	#partialDownloadButton:hover {
 	background-color: #5a6268;
 	}
+    footer {
+            text-align: center;
+            padding: 20px;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+    }
   </style>
 </head>
 <body>
@@ -239,7 +248,11 @@
       <button id="finishDayButton">Finalizar Jornada</button>
       <button id="downloadButton" disabled>Descargar Resultados</button>
   </div>
+<footer>
+            <br><p>&copy; <span id="currentYear"></span> Ing. Javier Mastrangelo. Todos los derechos reservados.</p>
+        </footer>
   <script>
+    document.getElementById("currentYear").innerHTML = new Date().getFullYear();
     // Variables globales
     let todosCasos = []; // Lista completa de casos del Excel (para exportar)
     let casosOriginales = []; // Casos nuevos a gestionar en la sesión actual
